@@ -1127,6 +1127,11 @@ size_t cwist_http_header_remove(cwist_http_header_node **head, const char *key) 
 
 /**
  * @brief Add default security headers to an HTTP response if not already present.
+ *
+ * Safe to call for both HTTP and HTTPS responses.  HSTS is intentionally
+ * excluded here because RFC 6797 §7.2 forbids it on non-TLS connections; use
+ * cwist_http_response_add_hsts() from your HTTPS handler instead.
+ *
  * @param res Response object to populate.
  */
 void cwist_http_response_add_security_headers(cwist_http_response *res) {
@@ -1161,8 +1166,24 @@ void cwist_http_response_add_security_headers(cwist_http_response *res) {
     if (!cwist_http_header_get(res->headers, "Cross-Origin-Resource-Policy")) {
         cwist_http_header_add_static(&res->headers, arena, "Cross-Origin-Resource-Policy", "same-origin");
     }
+}
+
+/**
+ * @brief Add Strict-Transport-Security to a response served over TLS.
+ *
+ * RFC 6797 §7.2 prohibits sending HSTS over plain HTTP; browsers ignore it
+ * there anyway.  Call this only from an HTTPS handler, after (or instead of)
+ * cwist_http_response_add_security_headers().  Skips the header if the
+ * response already has one.
+ *
+ * @param res Response object to populate.
+ */
+void cwist_http_response_add_hsts(cwist_http_response *res) {
+    if (!res) return;
+    cwist_arena_t *arena = (cwist_arena_t *)res->arena;
     if (!cwist_http_header_get(res->headers, "Strict-Transport-Security")) {
-        cwist_http_header_add_static(&res->headers, arena, "Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+        cwist_http_header_add_static(&res->headers, arena,
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     }
 }
 

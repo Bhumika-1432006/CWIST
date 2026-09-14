@@ -174,6 +174,7 @@ char *cwist_http_header_get(cwist_http_header_node *head, const char *key);
  * @brief Add default security headers (CSP, X-Frame-Options, etc.) if missing.
  */
 void cwist_http_response_add_security_headers(cwist_http_response *res);
+void cwist_http_response_add_hsts(cwist_http_response *res);
 
 /**
  * @brief Free all headers.

@@ -330,6 +330,15 @@ void cwist_http_header_free_all(cwist_http_header_node *head);
  * @brief Add default security headers (CSP, X-Frame-Options, etc.) if missing.
  */
 void cwist_http_response_add_security_headers(cwist_http_response *res);
+
+/**
+ * @brief Add Strict-Transport-Security to a TLS response (HTTPS only).
+ *
+ * RFC 6797 §7.2 forbids HSTS on plain HTTP.  Call this from your HTTPS handler
+ * after cwist_http_response_add_security_headers().  No-op when the header is
+ * already present.
+ */
+void cwist_http_response_add_hsts(cwist_http_response *res);
 /** @} */
 
 /** @name Helpers */
