@@ -10,6 +10,15 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+typedef enum {
+    CWIST_WS_FRAME_CONTINUATION = 0x0,
+    CWIST_WS_FRAME_TEXT = 0x1,
+    CWIST_WS_FRAME_BINARY = 0x2,
+    CWIST_WS_FRAME_CLOSE = 0x8,
+    CWIST_WS_FRAME_PING = 0x9,
+    CWIST_WS_FRAME_PONG = 0xA
+} cwist_ws_opcode_t;
+
 typedef struct cwist_websocket {
     int fd;
     bool is_closed;
@@ -22,15 +31,6 @@ typedef struct cwist_websocket {
     size_t            frag_cap;
     cwist_ws_opcode_t frag_opcode;
 } cwist_websocket;
-
-typedef enum {
-    CWIST_WS_FRAME_CONTINUATION = 0x0,
-    CWIST_WS_FRAME_TEXT = 0x1,
-    CWIST_WS_FRAME_BINARY = 0x2,
-    CWIST_WS_FRAME_CLOSE = 0x8,
-    CWIST_WS_FRAME_PING = 0x9,
-    CWIST_WS_FRAME_PONG = 0xA
-} cwist_ws_opcode_t;
 
 typedef struct cwist_ws_frame {
     bool fin;
