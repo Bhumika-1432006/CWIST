@@ -1,16 +1,10 @@
 /**
  * @file test_compress_backends.c
- * @brief Tests for the built-in deflate and zstd compression backends (issue #392).
- *
- * Covers:
- *   cwist_compress_backend_deflate() -- factory returns a valid descriptor.
- *   cwist_compress_backend_zstd()    -- factory returns a valid descriptor.
- *   Round-trip: init -> compress -> finish -> cleanup completes without error.
- *   cwist_compress_register_backend() + cwist_compress_unregister_all() -- smoke.
- *
- * The interface is defined in include/cwist/sys/app/compress.h.  Decompression
- * is not part of the backend interface, so the test only asserts that the
- * compress/finish pipeline produces non-empty output and returns 0.
+ * @brief Tests for the built-in deflate and zstd compression backends
+ *        (issue #392): descriptor sanity, an init/compress/finish/cleanup
+ *        round-trip, and register/unregister smoke. Decompression is not
+ *        part of the backend interface, so only output size and return
+ *        codes are asserted.
  */
 #define _POSIX_C_SOURCE 200809L
 #include <cwist/sys/app/compress.h>
@@ -80,10 +74,8 @@ static void test_register_unregister(void) {
     const cwist_compress_backend *b = cwist_compress_backend_deflate();
     assert(b != NULL);
 
-    /* register must not crash. */
     cwist_compress_register_backend(b);
 
-    /* unregister_all is idempotent -- calling twice must not crash. */
     cwist_compress_unregister_all();
     cwist_compress_unregister_all();
 
