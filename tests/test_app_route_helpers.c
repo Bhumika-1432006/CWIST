@@ -1,20 +1,8 @@
 /**
  * @file test_app_route_helpers.c
- * @brief Smoke tests for uncovered cwist_app_* route helpers (issue #390).
- *
- * Covers:
- *   cwist_app_get_named    -- named GET route; cwist_url_for finds it.
- *   cwist_app_put_named    -- named PUT route; cwist_url_for finds it.
- *   cwist_app_patch_named  -- named PATCH route; cwist_url_for finds it.
- *   cwist_app_get_opt      -- opt GET route with zeroed opts; no crash.
- *   cwist_app_post_opt     -- opt POST route with zeroed opts; no crash.
- *   cwist_app_put_opt      -- opt PUT route with zeroed opts; no crash.
- *   cwist_app_patch_opt    -- opt PATCH route with zeroed opts; no crash.
- *   cwist_app_delete_opt   -- opt DELETE route with zeroed opts; no crash.
- *   cwist_app_set_session_max_age -- stored in app; survives NULL app.
- *
- * None of these start a live server -- they only exercise the registration
- * and lookup paths.
+ * @brief Smoke tests for the cwist_app_* named/opt route helpers and
+ *        cwist_app_set_session_max_age (issue #390). Registration and lookup
+ *        paths only; no live server is started.
  */
 #define _POSIX_C_SOURCE 200809L
 #include <cwist/sys/app/app.h>
