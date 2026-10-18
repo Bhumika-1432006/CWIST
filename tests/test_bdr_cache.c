@@ -1,15 +1,8 @@
 /**
  * @file test_bdr_cache.c
- * @brief Unit tests for the Big Dumb Reply cache public accessors (issue #391).
- *
- * Covers:
- *   cwist_bdr_put_fixed   -- cache a fixed response; get returns it.
- *   cwist_bdr_get         -- hit returns bytes; miss returns NULL.
- *   cwist_bdr_get_pinned  -- pinned hit; blob stays readable until unpin.
- *   cwist_bdr_unpin       -- release a pin; NULL unpin must not crash.
- *   cwist_bdr_set_limits  -- set limits; oversized entry refused/evicted.
- *
- * cwist_bdr_create() needs no server -- the cache is standalone.
+ * @brief Unit tests for the Big Dumb Reply cache accessors: put_fixed, get,
+ *        get_pinned, unpin, set_limits (issue #391). The cache is standalone;
+ *        no server is needed.
  */
 #define _POSIX_C_SOURCE 200809L
 #include <cwist/sys/app/big_dumb_reply.h>
@@ -54,7 +47,6 @@ static void test_get_method_key(void) {
     const void *blob = cwist_bdr_get(bdr, "POST", "/resource", &len);
     assert(blob == NULL);
 
-    /* GET still hits. */
     blob = cwist_bdr_get(bdr, "GET", "/resource", &len);
     assert(blob != NULL);
 
@@ -79,15 +71,10 @@ static void test_get_pinned_and_unpin(void) {
     assert(memcmp(blob, body, len) == 0);
     assert(pin != NULL);
 
-    /* Blob must remain valid while the pin is held. */
-    assert(memcmp(blob, body, len) == 0);
-
     cwist_bdr_unpin(pin);
-
-    /* NULL unpin must not crash. */
     cwist_bdr_unpin(NULL);
 
-    /* Miss path: pinned lookup returns NULL for missing entry. */
+    /* Pinned lookup of a missing entry yields neither blob nor pin. */
     bdr_blob_t *pin2 = NULL;
     blob = cwist_bdr_get_pinned(bdr, "GET", "/absent", &len, &pin2);
     assert(blob == NULL);
@@ -103,23 +90,18 @@ static void test_set_limits(void) {
     cwist_bdr_t *bdr = cwist_bdr_create();
     assert(bdr != NULL);
 
-    /* Set a max_bytes limit smaller than the test body. */
+    /* An entry larger than max_bytes is refused or immediately evicted;
+     * either is acceptable, so only assert the cache survives. */
     cwist_bdr_set_limits(bdr, 4, 0, 0);
 
-    /* An entry larger than max_bytes must be refused or evicted.
-     * After put_fixed the cache either stores nothing (refused) or stores
-     * and immediately evicts; in both cases a subsequent get must not
-     * return more bytes than max_bytes allows. */
     const char big[] = "this response is definitely larger than four bytes";
     cwist_bdr_put_fixed(bdr, "GET", "/big", big, sizeof(big));
 
     size_t len = 0;
     const void *blob = cwist_bdr_get(bdr, "GET", "/big", &len);
-    /* Either NULL (refused) or a blob -- assert we did not crash. */
     (void)blob;
     (void)len;
 
-    /* Zero-value arguments to set_limits must not crash. */
     cwist_bdr_set_limits(bdr, 0, 0, 0);
 
     cwist_bdr_destroy(bdr);
