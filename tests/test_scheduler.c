@@ -61,11 +61,9 @@ static void test_cancel_pending_null_drop_cb(void) {
     cwist_scheduler_t *s = cwist_scheduler_create(1, 8);
     assert(s);
 
-    /* NULL drop_cb: args are discarded (no free in this path — args are ints
-     * allocated with alloc_arg; we accept the small leak here because the
-     * test verifies the cancel count and no-crash behaviour). */
+    int stack_args[3] = {1, 2, 3};
     for (int i = 0; i < 3; i++) {
-        assert(cwist_scheduler_schedule(s, increment_job, alloc_arg(i), 60000));
+        assert(cwist_scheduler_schedule(s, increment_job, &stack_args[i], 60000));
     }
     size_t cancelled = cwist_scheduler_cancel_pending(s, NULL);
     assert(cancelled == 3);
