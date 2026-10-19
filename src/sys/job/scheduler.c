@@ -412,3 +412,31 @@ size_t cwist_scheduler_pending_count(cwist_scheduler_t *s) {
     pthread_mutex_unlock(&s->delayed_mtx);
     return count;
 }
+
+/**
+ * @brief Cancel all delayed jobs that have not yet fired.
+ *
+ * Acquires the delayed-job mutex and drains the entire heap in one pass,
+ * calling @p drop_cb(arg) for each job so the caller can reclaim arg memory.
+ * The heap is left empty. Jobs already submitted to the io queue by the timer
+ * thread before this call are not affected.
+ *
+ * @param s       Scheduler whose pending jobs are to be cancelled.
+ * @param drop_cb Destructor called once per cancelled job's arg; may be NULL.
+ * @return        Number of jobs cancelled.
+ */
+size_t cwist_scheduler_cancel_pending(cwist_scheduler_t *s,
+                                      cwist_scheduler_drop_cb drop_cb) {
+    if (!s) return 0;
+
+    pthread_mutex_lock(&s->delayed_mtx);
+    size_t cancelled = s->heap_count;
+    if (drop_cb) {
+        for (size_t i = 0; i < cancelled; i++) {
+            drop_cb(s->heap[i].arg);
+        }
+    }
+    s->heap_count = 0;
+    pthread_mutex_unlock(&s->delayed_mtx);
+    return cancelled;
+}
