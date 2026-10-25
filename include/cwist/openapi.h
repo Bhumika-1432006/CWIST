@@ -2,17 +2,13 @@
  * @file openapi.h
  * @brief OpenAPI 3.1 generation — source annotations and runtime serving.
  *
- * Two complementary mechanisms:
+ * The CWIST_OPENAPI_* macros register a route normally and leave a parseable
+ * declaration in C source for off-line tooling (`cwist openapi`).
  *
- * 1. Source-level macros (CWIST_OPENAPI_GET etc.) leave an unambiguous,
- *    parseable declaration in C source for off-line tooling (e.g. `cwist
- *    openapi`). They also register the route normally, so every route
- *    declared with these macros appears in the runtime-generated spec.
- *
- * 2. Runtime generation: cwist_app_enable_openapi() registers a GET
- *    handler that serves an OpenAPI 3.1 JSON document at the given path,
- *    built from routes annotated via cwist_openapi_annotate() before
- *    cwist_app_listen() is called.
+ * cwist_app_enable_openapi() serves an OpenAPI 3.1 document built from the
+ * app's live route table on every request: each HTTP route appears with its
+ * path (":id" segments become "{id}" path parameters) and method, however it
+ * was registered.  cwist_openapi_annotate() adds a summary and tags.
  *
  * Minimal example:
  * @code
@@ -42,8 +38,8 @@
 /**
  * @brief Per-application metadata for the generated OpenAPI document.
  *
- * All fields are optional (NULL falls back to a sensible default) except
- * @p title and @p version, which appear in the OpenAPI `info` object.
+ * Every field is optional: NULL title/version fall back to "CWIST API" and
+ * "1.0.0", NULL server_url to "/".  The strings are copied.
  */
 typedef struct {
     const char *title;       /**< API title (info.title). */
@@ -53,36 +49,30 @@ typedef struct {
 } cwist_openapi_meta_t;
 
 /**
- * @brief Enable the runtime OpenAPI 3.1 endpoint.
+ * @brief Serve the app's OpenAPI 3.1 document.
  *
- * Registers a GET handler at @p json_path that serves an OpenAPI 3.1
- * JSON document collected from all cwist_openapi_annotate() calls made
- * after this call and before cwist_app_listen().
+ * Registers GET @p json_path.  The document lists every HTTP route of @p app
+ * at request time (the spec route itself and WebSocket routes excepted), so
+ * routes added before or after this call are all included.  A second call on
+ * the same @p app is ignored.
  *
- * Must be called before the first cwist_openapi_annotate() call.
- * Calling this more than once on the same @p app is a no-op after the
- * first call.
- *
- * @param app       Application to enable the endpoint on.
- * @param json_path URL path to serve the spec (e.g. "/openapi.json").
- *                  NULL defaults to "/openapi.json".
- * @param meta      Document metadata; NULL uses built-in defaults.
+ * @param app       Application to serve the document from.
+ * @param json_path URL path of the document; NULL means "/openapi.json".
+ * @param meta      Document metadata; NULL uses the defaults.
  */
 void cwist_app_enable_openapi(cwist_app *app, const char *json_path,
                               const cwist_openapi_meta_t *meta);
 
 /**
- * @brief Annotate a route for inclusion in the generated OpenAPI spec.
+ * @brief Attach a summary and tags to one operation of the document.
  *
- * Must be called after cwist_app_enable_openapi() on the same @p app.
- * Routes registered without a matching annotation still appear in the
- * spec (path and method only) when they are declared with the
- * CWIST_OPENAPI_* macros; this call adds richer metadata.
+ * Takes effect only after cwist_app_enable_openapi() on the same @p app.
+ * Annotating the same method and path again replaces the earlier values.
  *
  * @param app     Application owning the route.
- * @param method  HTTP method string: "GET", "POST", "PUT", etc.
- * @param path    Route path as registered (e.g. "/users/:id").
- * @param summary Short human-readable summary for the operation.
+ * @param method  HTTP method name, case-insensitive ("GET", "post", ...).
+ * @param path    Route path exactly as registered (e.g. "/users/:id").
+ * @param summary Operation summary, or NULL.
  * @param tags    Comma-separated tag list, or NULL.
  */
 void cwist_openapi_annotate(cwist_app *app, const char *method, const char *path,

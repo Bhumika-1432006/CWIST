@@ -1,7 +1,7 @@
 /**
  * @file test_openapi.c
- * @brief Runtime OpenAPI endpoint: the served document parses and carries
- *        the metadata and annotated operations.
+ * @brief Runtime OpenAPI endpoint: the served document parses, carries the
+ *        metadata and annotations, and follows the live route table.
  */
 #define _POSIX_C_SOURCE 200809L
 #include <cwist/openapi.h>
@@ -75,7 +75,43 @@ int main(void) {
     const cJSON *tags = cJSON_GetObjectItemCaseSensitive(get, "tags");
     FAIL_IF(cJSON_GetArraySize(tags) != 2, "two tags");
     FAIL_IF(strcmp(cJSON_GetArrayItem(tags, 1)->valuestring, "public") != 0, "second tag");
+    FAIL_IF(cJSON_GetObjectItemCaseSensitive(paths, "/spec.json"), "spec route not listed");
     cJSON_Delete(doc);
+
+    /* Routes added later, unannotated, show up on the next request; a path
+     * parameter becomes a templated path with a parameter object. */
+    cwist_app_post(app, "/users", users_handler);
+    cwist_app_get(app, "/users/:id", users_handler);
+    doc = fetch_spec(client, "/spec.json");
+    FAIL_IF(!doc, "spec after adding routes");
+    paths = cJSON_GetObjectItemCaseSensitive(doc, "paths");
+    const cJSON *users = cJSON_GetObjectItemCaseSensitive(paths, "/users");
+    FAIL_IF(!cJSON_GetObjectItemCaseSensitive(users, "get") ||
+                !cJSON_GetObjectItemCaseSensitive(users, "post"),
+            "GET and POST share one path item");
+    const cJSON *by_id = cJSON_GetObjectItemCaseSensitive(
+        cJSON_GetObjectItemCaseSensitive(paths, "/users/{id}"), "get");
+    FAIL_IF(!by_id, "templated path");
+    const cJSON *param = cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(by_id, "parameters"), 0);
+    FAIL_IF(!str_at(param, "name") || strcmp(str_at(param, "name"), "id") != 0 ||
+                strcmp(str_at(param, "in"), "path") != 0,
+            "path parameter");
+    cJSON_Delete(doc);
+
+    /* A second app keeps its own document. */
+    cwist_app *other = cwist_app_create();
+    FAIL_IF(!other, "second app");
+    cwist_app_enable_openapi(other, NULL, NULL);
+    cwist_test_client *other_client = cwist_test_client_create(other);
+    doc = fetch_spec(other_client, "/openapi.json");
+    FAIL_IF(!doc, "default path and metadata");
+    FAIL_IF(strcmp(str_at(cJSON_GetObjectItemCaseSensitive(doc, "info"), "title"), "CWIST API") != 0,
+            "default title");
+    FAIL_IF(cJSON_GetArraySize(cJSON_GetObjectItemCaseSensitive(doc, "paths")) != 0,
+            "other app's routes do not leak in");
+    cJSON_Delete(doc);
+    cwist_test_client_destroy(other_client);
+    cwist_app_destroy(other);
 
     cwist_test_client_destroy(client);
     cwist_app_destroy(app);
