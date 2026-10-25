@@ -1,54 +1,75 @@
 /**
  * @file zero_alloc_counter.c
- * @brief LD_PRELOAD shim for the zero-allocation gate (#432).
+ * @brief LD_PRELOAD shim for scripts/ci/zero_alloc_gate.sh (#432).
  *
- * Intercepts malloc/calloc/realloc to count calls that occur between
- * the arm and disarm signals, which the gate script sends via HTTP
- * requests to /zero_alloc_arm and /zero_alloc_count on a server built
- * with CWIST_ZERO_ALLOC_GATE=1.
+ * Counts heap allocations (malloc, calloc, realloc and the aligned
+ * allocators) made while armed.  tests/zero_alloc_server.c finds the control
+ * functions with dlsym(RTLD_DEFAULT) and drives them from HTTP routes.
  *
- * The arm/disarm API is intentionally not in this file: the gate server
- * (rss_gate_server with CWIST_ZERO_ALLOC_GATE=1) calls
- * cwist_zero_alloc_arm() and cwist_zero_alloc_disarm() directly.
- * This file only intercepts libc allocations and maintains the counter.
+ * The real allocators are reached through glibc's __libc_* entry points, not
+ * dlsym(RTLD_NEXT): dlsym itself allocates, which would recurse into the
+ * shim before it is resolved.
  *
- * Build: gcc -O2 -fPIC -shared -o zero_alloc_shim.so \
- *             tests/zero_alloc_counter.c -ldl
+ * Build: gcc -O2 -fPIC -shared -o zero_alloc_shim.so tests/zero_alloc_counter.c
  */
 #define _GNU_SOURCE
+#include <errno.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stddef.h>
-#include <dlfcn.h>
 
-/* Armed flag: 0 = not counting, 1 = counting. */
-static _Atomic int  g_armed    = 0;
-static _Atomic long g_alloc_count = 0;
+extern void *__libc_malloc(size_t size);
+extern void *__libc_calloc(size_t nmemb, size_t size);
+extern void *__libc_realloc(void *ptr, size_t size);
+extern void *__libc_memalign(size_t alignment, size_t size);
 
-/* Public API for the gate server to arm/disarm the counter. */
-void cwist_zero_alloc_arm(void)    { atomic_store(&g_armed, 1); }
-void cwist_zero_alloc_disarm(void) { atomic_store(&g_armed, 0); }
-long cwist_zero_alloc_count(void)  { return atomic_load(&g_alloc_count); }
-void cwist_zero_alloc_reset(void)  { atomic_store(&g_alloc_count, 0); }
+static atomic_bool g_armed;
+static atomic_long g_count;
 
-/* Interposition: only count when armed. */
+void cwist_zero_alloc_arm(void) {
+    atomic_store(&g_count, 0);
+    atomic_store(&g_armed, true);
+}
+
+long cwist_zero_alloc_disarm(void) {
+    atomic_store(&g_armed, false);
+    return atomic_load(&g_count);
+}
+
+static inline void count(void) {
+    if (atomic_load_explicit(&g_armed, memory_order_relaxed))
+        atomic_fetch_add_explicit(&g_count, 1, memory_order_relaxed);
+}
 
 void *malloc(size_t size) {
-    static void *(*real_malloc)(size_t) = NULL;
-    if (!real_malloc) real_malloc = dlsym(RTLD_NEXT, "malloc");
-    if (atomic_load(&g_armed)) atomic_fetch_add(&g_alloc_count, 1);
-    return real_malloc(size);
+    count();
+    return __libc_malloc(size);
 }
 
 void *calloc(size_t nmemb, size_t size) {
-    static void *(*real_calloc)(size_t, size_t) = NULL;
-    if (!real_calloc) real_calloc = dlsym(RTLD_NEXT, "calloc");
-    if (atomic_load(&g_armed)) atomic_fetch_add(&g_alloc_count, 1);
-    return real_calloc(nmemb, size);
+    count();
+    return __libc_calloc(nmemb, size);
 }
 
 void *realloc(void *ptr, size_t size) {
-    static void *(*real_realloc)(void *, size_t) = NULL;
-    if (!real_realloc) real_realloc = dlsym(RTLD_NEXT, "realloc");
-    if (atomic_load(&g_armed)) atomic_fetch_add(&g_alloc_count, 1);
-    return real_realloc(ptr, size);
+    count();
+    return __libc_realloc(ptr, size);
+}
+
+void *memalign(size_t alignment, size_t size) {
+    count();
+    return __libc_memalign(alignment, size);
+}
+
+void *aligned_alloc(size_t alignment, size_t size) {
+    count();
+    return __libc_memalign(alignment, size);
+}
+
+int posix_memalign(void **out, size_t alignment, size_t size) {
+    count();
+    void *p = __libc_memalign(alignment, size);
+    if (!p) return ENOMEM;
+    *out = p;
+    return 0;
 }
