@@ -98,7 +98,7 @@ static char *build_json(void) {
 
     for (size_t i = 0; i < g_state.route_count && pos < CWIST_OPENAPI_JSON_CAP - 256; i++) {
         const openapi_route_t *r = &g_state.routes[i];
-        char epath[256], esummary[256], etags[256];
+        char epath[256], esummary[256];
         json_escape(r->path,    epath,    sizeof(epath));
         json_escape(r->summary, esummary, sizeof(esummary));
 
@@ -159,8 +159,8 @@ static void openapi_handler(cwist_http_request *req, cwist_http_response *res) {
         : "{\"error\":\"openapi build failed\"}";
     cwist_sstring_assign(res->body, json);
     pthread_mutex_unlock(&g_state.mu);
-    res->status = 200;
-    cwist_http_set_header(res, "Content-Type", "application/json");
+    res->status_code = CWIST_HTTP_OK;
+    cwist_http_header_add(&res->headers, "Content-Type", "application/json");
 }
 
 void cwist_app_enable_openapi(cwist_app *app, const char *json_path,
