@@ -76,59 +76,47 @@ const cwist_jwt_claims *cwist_mw_jwt_get_claims(const cwist_http_request *req);
 
 /* ---- OpenTelemetry tracing middleware ------------------------------------ */
 
-/** @brief OTLP exporter protocol. */
-typedef enum {
-    CWIST_OTEL_PROTO_HTTP = 0, /**< OTLP/HTTP (binary protobuf). Default. */
-    CWIST_OTEL_PROTO_GRPC,     /**< OTLP/gRPC. */
-} cwist_otel_proto_t;
-
 /**
  * @brief Configuration for cwist_mw_otel_trace().
  *
- * All string fields are borrowed: they must outlive every request that
- * passes through the middleware (typically static or global).
+ * Every field is optional (NULL / 0 selects the default); the strings are
+ * copied.
  */
 typedef struct {
-    const char       *endpoint;     /**< OTLP collector endpoint URL.
-                                     *   Default: "http://localhost:4318/v1/traces". */
-    const char       *service_name; /**< OTel resource service.name attribute.
-                                     *   Default: "cwist". */
-    cwist_otel_proto_t proto;       /**< Exporter wire protocol. */
-    size_t            queue_cap;    /**< Max spans buffered before export.
-                                     *   0 uses the built-in default (512). */
-    size_t            batch_size;   /**< Spans per export batch.
-                                     *   0 uses the built-in default (64). */
+    const char *endpoint;     /**< OTLP/HTTP traces URL.
+                               *   Default: "http://localhost:4318/v1/traces". */
+    const char *service_name; /**< Resource attribute service.name. Default: "cwist". */
+    size_t queue_cap;         /**< Spans buffered per process. Default: 512. */
+    size_t batch_size;        /**< Spans per export request. Default: 64. */
 } cwist_otel_cfg_t;
 
 /**
- * @brief Create an OpenTelemetry tracing middleware instance.
+ * @brief OpenTelemetry tracing middleware.
  *
- * Emits one span per request covering the full middleware chain.  Each
- * span records the HTTP method, route path, response status, and
- * duration.  The W3C @c traceparent header is read from the incoming
- * request; the extracted trace-id and parent-span-id are propagated into
- * @p req so downstream handlers can read them via
- * cwist_mw_otel_get_trace_id().
+ * Records one SERVER span per request covering the rest of the chain, with
+ * the method, path, status and start/end time, and exports the spans to the
+ * collector as OTLP/HTTP JSON from a background thread in each worker
+ * process.  A valid W3C @c traceparent header makes the span a child of the
+ * caller's span; otherwise a new trace starts.
  *
- * Export failures are fail-open: a collector that is down or slow never
- * fails or slows a request.  When the internal queue is full, the oldest
- * span is silently dropped.
+ * Export is fail-open: a full queue drops its oldest span and a failed export
+ * drops the batch; requests are never slowed or failed by the collector.
  *
- * @param cfg Exporter configuration, or NULL for built-in defaults.
- * @return Middleware function pointer, or NULL on allocation failure.
+ * There is one exporter per process: the first call fixes the configuration
+ * and later calls return the same middleware.
+ *
+ * @param cfg Exporter configuration, or NULL for the defaults.
+ * @return The middleware, or NULL when memory could not be had.
  */
 cwist_middleware_func cwist_mw_otel_trace(const cwist_otel_cfg_t *cfg);
 
 /**
- * @brief Read the trace-id injected by cwist_mw_otel_trace() for this request.
+ * @brief Trace id of the span cwist_mw_otel_trace() opened for @p req.
  *
- * Returns a 32-hex-character lowercase string (128-bit W3C trace-id) if a
- * @c traceparent header was present and valid; returns NULL otherwise.
- * Only valid inside handlers or middleware that run downstream of
- * cwist_mw_otel_trace().
- *
- * @param req The current HTTP request.
- * @return Borrowed pointer to the trace-id string, or NULL.
+ * @param req The current request.
+ * @return 32 lowercase hex characters (the caller's trace id when the request
+ *         carried a valid @c traceparent, a fresh one otherwise), or NULL when
+ *         @p req is not running behind the middleware on this thread.
  */
 const char *cwist_mw_otel_get_trace_id(const cwist_http_request *req);
 
