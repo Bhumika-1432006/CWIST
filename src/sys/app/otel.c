@@ -186,11 +186,11 @@ static void otel_middleware(cwist_http_request *req, cwist_http_response *res,
     next(req, res);
 
     span.duration_ms = now_ms() - t0;
-    span.status      = res->status;
-    const char *path = req->path ? cwist_sstring_cstr(req->path) : "/";
+    span.status      = (int)res->status_code;
+    const char *path = req->path ? req->path->data : "/";
     snprintf(span.path, sizeof(span.path), "%s", path ? path : "/");
     static const char *methods[] = {"GET","POST","PUT","DELETE","PATCH"};
-    static const int method_ids[] = {
+    static const cwist_http_method_t method_ids[] = {
         CWIST_HTTP_GET, CWIST_HTTP_POST, CWIST_HTTP_PUT,
         CWIST_HTTP_DELETE, CWIST_HTTP_PATCH
     };
