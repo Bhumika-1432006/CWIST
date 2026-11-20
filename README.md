@@ -487,12 +487,12 @@ CI regenerates this block from each benchmark run.
 
 <!-- WEBSERVER_BENCHMARKS:START -->
 Latest Web Server Benchmark (wrk -t12 -c400 -d10s (after 10s warmup, warmup discarded)):
-- **CWIST Classic pool**: 258218 req/s | Latency 0.88ms (P50 0.64ms, P90 1.87ms, P99 3.57ms, P99.999 21.10ms) | RSS 59556KiB | Csw 2612127
-- **CWIST reactor**: 342869 req/s | Latency 1.27ms (P50 1.00ms, P90 2.73ms, P99 4.88ms, P99.999 17.05ms) | RSS 23024KiB | Csw 435732
-- **Actix**: 310947 req/s | Latency 1.37ms (P50 1.10ms, P90 2.80ms, P99 4.97ms, P99.999 11.67ms) | RSS 12576KiB | Csw 555623
-- **Axum**: 254717 req/s | Latency 1.57ms (P50 1.44ms, P90 2.74ms, P99 4.26ms, P99.999 8.80ms) | RSS 16176KiB | Csw 807291
-- **Gin (Go)**: 201935 req/s | Latency 4.07ms (P50 1.97ms, P90 11.42ms, P99 27.93ms, P99.999 69.35ms) | RSS 29040KiB | Csw 995490
-- **Spring Boot**: 134808 req/s | Latency 2.97ms (P50 2.63ms, P90 4.26ms, P99 6.62ms, P99.999 52.09ms) | RSS 1295528KiB | Csw 661975
+- **CWIST Classic pool**: 252937 req/s | Latency 0.95ms (P50 0.67ms, P90 2.03ms, P99 4.66ms, P99.999 25.48ms) | RSS 60340KiB | Csw 2513735
+- **CWIST reactor**: 348097 req/s | Latency 1.27ms (P50 0.95ms, P90 2.82ms, P99 5.03ms, P99.999 14.62ms) | RSS 22472KiB | Csw 393003
+- **Actix**: 317936 req/s | Latency 1.34ms (P50 1.10ms, P90 2.77ms, P99 4.86ms, P99.999 11.20ms) | RSS 12368KiB | Csw 505741
+- **Axum**: 259766 req/s | Latency 1.54ms (P50 1.40ms, P90 2.70ms, P99 4.25ms, P99.999 8.47ms) | RSS 16236KiB | Csw 729418
+- **Gin (Go)**: 201166 req/s | Latency 4.11ms (P50 1.95ms, P90 11.79ms, P99 26.78ms, P99.999 66.41ms) | RSS 27184KiB | Csw 1063734
+- **Spring Boot**: 134038 req/s | Latency 2.99ms (P50 2.68ms, P90 4.27ms, P99 7.06ms, P99.999 48.21ms) | RSS 1300088KiB | Csw 669831
 
 _Settled CWIST-internal tuning variants (glibc arena cap from PR #35, cooperative drain chunk from issue #25) are recorded in docs/cooperative-queuing.md and benchmarks/webserver.json; they are no longer rendered as comparison rows._
 
